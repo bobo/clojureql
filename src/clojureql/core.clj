@@ -167,6 +167,20 @@
    (select tble (where ...))"
   `(where* '~clause))
 
+
+(defn has-filesort [s cnx]
+  (->
+   (in-connection*
+    (with-results* [(str "explain "  s)] (fn [rs] (doall rs))))
+   first
+   :extra
+   (.contains "filesort")))
+
+(defn warn-on-filesort [s cnx]
+  (when (has-filesort s cnx) (prn "WARNING, USING FILESORT")))
+
+
+
 (defn to-sql [tble]
   (let [{:keys [cnx tname tcols restriction renames joins
                 grouped-by limit offset order-by]} tble
@@ -209,6 +223,7 @@
                      (str "OFFSET " offset) ; Not allowed on MySQL
                      ""))))]
     (when *debug* (prn sql-string))
+    (when *debug* (warn-on-filesort sql-string cnx))
     sql-string))
 
                                         ; RELATIONAL ALGEBRA
@@ -236,7 +251,7 @@
 (defrecord RTable [cnx tname tcols restriction renames joins grouped-by limit offset order-by]
   clojure.lang.IDeref
   (deref [this]
-     (in-connection*
+     (in-conection*
       (with-results* [(to-sql this)] (fn [rs] (doall rs)))))
 
   Relation
